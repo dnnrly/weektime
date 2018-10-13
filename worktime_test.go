@@ -1,6 +1,7 @@
 package weektime
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -45,6 +46,348 @@ func TestWorkTime_NextStart(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
+		})
+	}
+}
+
+func TestNewStandardWorkTime(t *testing.T) {
+	wt := NewStandardWorkTime(time.Now())
+	assert.Equal(t, (time.Hour * 9).String(), wt.start.String())
+	assert.Equal(t, (time.Hour * 17).String(), wt.end.String())
+}
+
+func TestNewWorkTime(t *testing.T) {
+	wt := NewWorkTime(time.Now(), time.Hour*8, time.Hour*18)
+	assert.Equal(t, (time.Hour * 8).String(), wt.start.String())
+	assert.Equal(t, (time.Hour * 18).String(), wt.end.String())
+}
+
+func TestWorkTime_IsWorkDay(t *testing.T) {
+	sun, _ := time.Parse("2006-01-02T15:04:05", "2018-10-07T15:00:00")
+	mon, _ := time.Parse("2006-01-02T15:04:05", "2018-10-08T15:00:00")
+	tue, _ := time.Parse("2006-01-02T15:04:05", "2018-10-09T15:00:00")
+	wed, _ := time.Parse("2006-01-02T15:04:05", "2018-10-10T15:00:00")
+	thu, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T15:00:00")
+	fri, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T15:00:00")
+	sat, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T15:00:00")
+
+	tests := []struct {
+		name string
+		wt   WorkTime
+		want bool
+	}{
+		{name: "Sun", wt: NewStandardWorkTime(sun), want: false},
+		{name: "Mon", wt: NewStandardWorkTime(mon), want: true},
+		{name: "Tue", wt: NewStandardWorkTime(tue), want: true},
+		{name: "Wed", wt: NewStandardWorkTime(wed), want: true},
+		{name: "Thu", wt: NewStandardWorkTime(thu), want: true},
+		{name: "Fri", wt: NewStandardWorkTime(fri), want: true},
+		{name: "Sat", wt: NewStandardWorkTime(sat), want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.wt.IsWorkDay(); got != tt.want {
+				t.Errorf("WorkTime.IsWorkDay() = %v, want %v", got, tt.want)
+			}
+			if day := tt.wt.Format("Mon"); day != tt.name {
+				t.Errorf("WorkTime Day = %v, want %v", day, tt.name)
+			}
+		})
+	}
+}
+
+func TestWorkTime_Length(t *testing.T) {
+	tests := []struct {
+		name  string
+		start time.Duration
+		end   time.Duration
+		want  time.Duration
+	}{
+		{name: "Normal", start: time.Hour * 9, end: time.Hour * 17, want: time.Hour * 8},
+		{name: "Early shift", start: time.Hour * 6, end: time.Hour * 12, want: time.Hour * 6},
+		{name: "Late shift", start: time.Hour * 19, end: time.Hour * 03, want: time.Hour * 8},
+		{name: "Day", start: time.Hour * 0, end: time.Hour * 0, want: time.Hour * 24},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := WorkTime{
+				Time:  time.Now(),
+				start: tt.start,
+				end:   tt.end,
+			}
+			if got := wt.Length(); got != tt.want {
+				t.Errorf("WorkTime.Length() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkTime_SinceMidnight(t *testing.T) {
+	when, _ := time.Parse("2006-01-02T15:04:05", "2018-10-07T15:00:00")
+	wt := NewStandardWorkTime(when)
+	assert.Equal(t, time.Hour*15, wt.SinceMidnight())
+}
+
+func TestWorkTime_BeforeStart(t *testing.T) {
+	before, _ := time.Parse("2006-01-02T15:04:05", "2018-10-08T07:00:00")
+	during, _ := time.Parse("2006-01-02T15:04:05", "2018-10-08T15:00:00")
+	after, _ := time.Parse("2006-01-02T15:04:05", "2018-10-08T19:00:00")
+
+	type fields struct {
+		Time  time.Time
+		start time.Duration
+		end   time.Duration
+	}
+	tests := []struct {
+		name string
+		Time time.Time
+		want bool
+	}{
+		{name: "Before", Time: before, want: true},
+		{name: "During", Time: during, want: false},
+		{name: "After", Time: after, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := NewStandardWorkTime(tt.Time)
+			if got := wt.BeforeStart(); got != tt.want {
+				t.Errorf("WorkTime.BeforeStart() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkTime_DuringOfficeHours(t *testing.T) {
+	before, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T07:00:00")
+	weekend, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T15:00:00")
+	during, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T15:00:00")
+	after, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T19:00:00")
+
+	tests := []struct {
+		name string
+		Time time.Time
+		want bool
+	}{
+		{name: "Before", Time: before, want: false},
+		{name: "During", Time: during, want: true},
+		{name: "After", Time: after, want: false},
+		{name: "Weekend", Time: weekend, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := NewStandardWorkTime(tt.Time)
+			if got := wt.DuringOfficeHours(); got != tt.want {
+				t.Errorf("WorkTime.DuringOfficeHours() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkTime_AfterEnd(t *testing.T) {
+	before, _ := time.Parse("2006-01-02T15:04:05", "2018-10-08T07:00:00")
+	during, _ := time.Parse("2006-01-02T15:04:05", "2018-10-08T15:00:00")
+	after, _ := time.Parse("2006-01-02T15:04:05", "2018-10-08T19:00:00")
+
+	type fields struct {
+		Time  time.Time
+		start time.Duration
+		end   time.Duration
+	}
+	tests := []struct {
+		name string
+		Time time.Time
+		want bool
+	}{
+		{name: "Before", Time: before, want: false},
+		{name: "During", Time: during, want: false},
+		{name: "After", Time: after, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := NewStandardWorkTime(tt.Time)
+			if got := wt.AfterEnd(); got != tt.want {
+				t.Errorf("WorkTime.AfterEnd() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+}
+
+func TestWorkTime_Start(t *testing.T) {
+	before, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T07:00:00")
+	during, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T15:00:00")
+	after, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T19:00:00")
+	friday, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T15:00:00")
+	weekend, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T15:00:00")
+
+	s1, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T09:00:00")
+	s2, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T09:00:00")
+	s3, _ := time.Parse("2006-01-02T15:04:05", "2018-10-15T09:00:00")
+
+	tests := []struct {
+		name string
+		Time time.Time
+		want time.Time
+	}{
+		{name: "Early", Time: before, want: s1},
+		{name: "During", Time: during, want: s2},
+		{name: "After", Time: after, want: s2},
+		{name: "Friday", Time: friday, want: s3},
+		{name: "Weekend", Time: weekend, want: s3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := NewStandardWorkTime(tt.Time)
+			if got := wt.Start(); !got.Time.Equal(tt.want) {
+				t.Errorf("WorkTime.Start() = %v, want %v", got.Time, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkTime_End(t *testing.T) {
+	before, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T07:00:00")
+	during, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T15:00:00")
+	after, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T19:00:00")
+	friday, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T18:00:00")
+	weekend, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T15:00:00")
+
+	s1, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T17:00:00")
+	s2, _ := time.Parse("2006-01-02T15:04:05", "2018-10-15T17:00:00")
+
+	tests := []struct {
+		name string
+		Time time.Time
+		want time.Time
+	}{
+		{name: "Early", Time: before, want: s1},
+		{name: "During", Time: during, want: s1},
+		{name: "After", Time: after, want: s2},
+		{name: "Friday", Time: friday, want: s2},
+		{name: "Weekend", Time: weekend, want: s2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := NewStandardWorkTime(tt.Time)
+			if got := wt.Start(); !got.Time.Equal(tt.want) {
+				t.Errorf("WorkTime.End() = %v, want %v", got.Time, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkTime_FromStart(t *testing.T) {
+	type fields struct {
+		Time  time.Time
+		start time.Duration
+		end   time.Duration
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   time.Duration
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := WorkTime{
+				Time:  tt.fields.Time,
+				start: tt.fields.start,
+				end:   tt.fields.end,
+			}
+			if got := wt.FromStart(); got != tt.want {
+				t.Errorf("WorkTime.FromStart() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkTime_UntilEnd(t *testing.T) {
+	type fields struct {
+		Time  time.Time
+		start time.Duration
+		end   time.Duration
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   time.Duration
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := WorkTime{
+				Time:  tt.fields.Time,
+				start: tt.fields.start,
+				end:   tt.fields.end,
+			}
+			if got := wt.UntilEnd(); got != tt.want {
+				t.Errorf("WorkTime.UntilEnd() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkTime_Add(t *testing.T) {
+	type fields struct {
+		Time  time.Time
+		start time.Duration
+		end   time.Duration
+	}
+	type args struct {
+		d time.Duration
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   WorkTime
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := WorkTime{
+				Time:  tt.fields.Time,
+				start: tt.fields.start,
+				end:   tt.fields.end,
+			}
+			if got := wt.Add(tt.args.d); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("WorkTime.Add() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkTime_IsSameDay(t *testing.T) {
+	type fields struct {
+		Time  time.Time
+		start time.Duration
+		end   time.Duration
+	}
+	type args struct {
+		d time.Time
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wt := WorkTime{
+				Time:  tt.fields.Time,
+				start: tt.fields.start,
+				end:   tt.fields.end,
+			}
+			if got := wt.IsSameDay(tt.args.d); got != tt.want {
+				t.Errorf("WorkTime.IsSameDay() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

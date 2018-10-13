@@ -1,3 +1,4 @@
+// Package weektime extends time.Time to help with work times and working week calculations
 package weektime
 
 import (
@@ -5,6 +6,7 @@ import (
 	"time"
 )
 
+// Day is a full calendar day
 const Day = time.Hour * 24
 
 // WorkTime represents a day that could be a normal week day with office hours
@@ -53,7 +55,13 @@ func (t WorkTime) IsWorkDay() bool {
 
 // Length returns the time.Duration of the working day
 func (t WorkTime) Length() time.Duration {
-	return t.end - t.start
+	diff := t.end - t.start
+
+	if diff <= 0 {
+		diff += Day
+	}
+
+	return diff
 }
 
 // SinceMidnight returns the time.Duration since the previous midnight
@@ -68,7 +76,7 @@ func (t WorkTime) BeforeStart() bool {
 
 // DuringOfficeHours returns true if the time is during the working hours
 func (t WorkTime) DuringOfficeHours() bool {
-	return !t.IsWorkDay() && !t.BeforeStart() && !t.AfterEnd()
+	return t.IsWorkDay() && !t.BeforeStart() && !t.AfterEnd()
 }
 
 // AfterEnd returns true if the time of day is after the end of the working day
