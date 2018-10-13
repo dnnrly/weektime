@@ -84,7 +84,7 @@ func (t WorkTime) AfterEnd() bool {
 	return t.SinceMidnight() > t.end
 }
 
-// Start returns a WorkTime representing the start of the working day
+// Start returns a WorkTime representing the working start of the current day
 func (t WorkTime) Start() WorkTime {
 	return NewWorkTime(
 		t.Truncate(Day).Add(t.start),

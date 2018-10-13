@@ -222,7 +222,7 @@ func TestWorkTime_Start(t *testing.T) {
 
 	s1, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T09:00:00")
 	s2, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T09:00:00")
-	s3, _ := time.Parse("2006-01-02T15:04:05", "2018-10-15T09:00:00")
+	s3, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T09:00:00")
 
 	tests := []struct {
 		name string
@@ -230,9 +230,9 @@ func TestWorkTime_Start(t *testing.T) {
 		want time.Time
 	}{
 		{name: "Early", Time: before, want: s1},
-		{name: "During", Time: during, want: s2},
-		{name: "After", Time: after, want: s2},
-		{name: "Friday", Time: friday, want: s3},
+		{name: "During", Time: during, want: s1},
+		{name: "After", Time: after, want: s1},
+		{name: "Friday", Time: friday, want: s2},
 		{name: "Weekend", Time: weekend, want: s3},
 	}
 	for _, tt := range tests {
@@ -253,7 +253,8 @@ func TestWorkTime_End(t *testing.T) {
 	weekend, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T15:00:00")
 
 	s1, _ := time.Parse("2006-01-02T15:04:05", "2018-10-11T17:00:00")
-	s2, _ := time.Parse("2006-01-02T15:04:05", "2018-10-15T17:00:00")
+	s2, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T17:00:00")
+	s3, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T17:00:00")
 
 	tests := []struct {
 		name string
@@ -262,14 +263,14 @@ func TestWorkTime_End(t *testing.T) {
 	}{
 		{name: "Early", Time: before, want: s1},
 		{name: "During", Time: during, want: s1},
-		{name: "After", Time: after, want: s2},
+		{name: "After", Time: after, want: s1},
 		{name: "Friday", Time: friday, want: s2},
-		{name: "Weekend", Time: weekend, want: s2},
+		{name: "Weekend", Time: weekend, want: s3},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			wt := NewStandardWorkTime(tt.Time)
-			if got := wt.Start(); !got.Time.Equal(tt.want) {
+			if got := wt.End(); !got.Time.Equal(tt.want) {
 				t.Errorf("WorkTime.End() = %v, want %v", got.Time, tt.want)
 			}
 		})
