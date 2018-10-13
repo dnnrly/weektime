@@ -1,5 +1,5 @@
-// Package weektime extends time.Time to help with work times and working week calculations
-package weektime
+// Package worktime extends time.Time to help with work times and working week calculations
+package worktime
 
 import (
 	"fmt"

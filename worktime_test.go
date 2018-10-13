@@ -1,4 +1,4 @@
-package weektime
+package worktime
 
 import (
 	"reflect"
