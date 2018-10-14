@@ -127,7 +127,7 @@ func (t WorkTime) FromStart() time.Duration {
 // UntilEnd returns the amount of time until the end of the working day, can be negative if the
 // time of day is after the end of the working day
 func (t WorkTime) UntilEnd() time.Duration {
-	return t.SinceMidnight() - t.end
+	return t.end - t.SinceMidnight()
 }
 
 // Add returns a WorkTime plus a time.Duration
