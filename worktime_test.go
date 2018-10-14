@@ -29,8 +29,9 @@ func TestWorkTime_String(t *testing.T) {
 }
 
 func TestWorkTime_NextStart(t *testing.T) {
-	inFriday, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T15:00:00")
-	inWeekend, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T15:00:00")
+	inFriday, _ := time.Parse("2006-01-02T15:04:05", "2018-10-12T15:00:00")
+	inSaturday, _ := time.Parse("2006-01-02T15:04:05", "2018-10-13T15:00:00")
+	inSunday, _ := time.Parse("2006-01-02T15:04:05", "2018-10-14T15:00:00")
 	beforeTuesday, _ := time.Parse("2006-01-02T15:04:05", "2018-10-09T07:00:00")
 
 	tests := []struct {
@@ -39,12 +40,13 @@ func TestWorkTime_NextStart(t *testing.T) {
 		expected string
 	}{
 		{name: "During Friday", when: NewStandardWorkTime(inFriday), expected: "2018-10-15T09:00:00 [Mon] (09:00 - 17:00)"},
-		{name: "Over weekend", when: NewStandardWorkTime(inWeekend), expected: "2018-10-15T09:00:00 [Mon] (09:00 - 17:00)"},
-		{name: "Before start of Tuesday", when: NewStandardWorkTime(beforeTuesday), expected: "2018-10-08T09:00:00 [Tue] (09:00 - 17:00)"},
+		{name: "During Saturday", when: NewStandardWorkTime(inSaturday), expected: "2018-10-15T09:00:00 [Mon] (09:00 - 17:00)"},
+		{name: "During Sunday", when: NewStandardWorkTime(inSunday), expected: "2018-10-15T09:00:00 [Mon] (09:00 - 17:00)"},
+		{name: "Before start of Tuesday", when: NewStandardWorkTime(beforeTuesday), expected: "2018-10-09T09:00:00 [Tue] (09:00 - 17:00)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
+			assert.Equal(t, test.expected, test.when.NextStart().String())
 		})
 	}
 }
