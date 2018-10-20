@@ -355,3 +355,32 @@ func TestWorkTime_IsSameDay(t *testing.T) {
 	assert.True(t, NewStandardWorkTime(before).IsSameDay(after))
 	assert.False(t, NewStandardWorkTime(friday).IsSameDay(weekend))
 }
+
+func TestWorkTime_Crossover(t *testing.T) {
+	thuGMT, _ := time.Parse("2006-01-02T15:04:05Z07", "2018-10-11T15:00:00Z")
+	thuEST, _ := time.Parse("2006-01-02T15:04:05Z07", "2018-10-11T15:00:00-05")
+	thuDST, _ := time.Parse("2006-01-02T15:04:05Z07", "2018-10-11T15:00:00-10")
+	friGMT, _ := time.Parse("2006-01-02T15:04:05Z07", "2018-10-12T15:00:00Z")
+
+	tests := []struct {
+		name string
+		t    WorkTime
+		arg  WorkTime
+		want string
+	}{
+		{name: "Same day, forward", t: NewStandardWorkTime(thuGMT), arg: NewStandardWorkTime(thuEST), want: "2018-10-11T15:00:00 [Thu] (14:00 - 17:00)"},
+		{name: "Same day, backward", t: NewStandardWorkTime(thuEST), arg: NewStandardWorkTime(thuGMT), want: "2018-10-11T15:00:00 [Thu] (09:00 - 12:00)"},
+		{name: "Same day, no overlap", t: NewStandardWorkTime(thuGMT), arg: NewStandardWorkTime(thuDST), want: "2018-10-11T15:00:00 [Thu] (00:00 - 00:00)"},
+		{name: "Same tz, different day", t: NewStandardWorkTime(thuGMT), arg: NewStandardWorkTime(friGMT), want: "2018-10-11T15:00:00 [Thu] (09:00 - 17:00)"},
+		{name: "Same tz, short day", t: NewStandardWorkTime(thuGMT), arg: NewWorkTime(thuGMT, time.Hour*10, time.Hour*14), want: "2018-10-11T15:00:00 [Thu] (10:00 - 14:00)"},
+		{name: "Same tz, other short day", t: NewWorkTime(thuGMT, time.Hour*10, time.Hour*14), arg: NewStandardWorkTime(thuGMT), want: "2018-10-11T15:00:00 [Thu] (10:00 - 14:00)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.t.Crossover(tt.arg).String()
+			if result != tt.want {
+				t.Errorf("WorkTime.Crossover() = %v, want %v", result, tt.want)
+			}
+		})
+	}
+}

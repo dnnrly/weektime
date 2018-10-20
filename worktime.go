@@ -144,3 +144,39 @@ func (t WorkTime) IsSameDay(d time.Time) bool {
 		tMonth == dMonth &&
 		tDay == dDay
 }
+
+// Crossover works out the where this working days cross over, accounting for time zone but ignoring the current time
+func (t WorkTime) Crossover(v WorkTime) WorkTime {
+	_, toffset := t.Zone()
+	_, voffset := v.Zone()
+
+	offset := time.Second * time.Duration(toffset-voffset)
+	v.start += offset
+	v.end += offset
+
+	t.start = dmax(t.start, v.start)
+	t.end = dmin(t.end, v.end)
+
+	if t.start > t.end {
+		t.start = 0
+		t.end = 0
+	}
+
+	return t
+}
+
+func dmin(l, r time.Duration) time.Duration {
+	if l < r {
+		return l
+	}
+
+	return r
+}
+
+func dmax(l, r time.Duration) time.Duration {
+	if l > r {
+		return l
+	}
+
+	return r
+}
